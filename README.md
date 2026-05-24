@@ -34,7 +34,7 @@ az webapp create \
   --name schwappes \
   --resource-group schwappes-rg \
   --plan schwappes-plan \
-  --runtime "NODE:20-lts"
+  --runtime "NODE:22-lts"
 
 # Set startup command
 az webapp config set \
@@ -43,7 +43,7 @@ az webapp config set \
   --startup-file "node server.js"
 ```
 
-> **Note:** Use `NODE:20-lts` (colon) not `NODE|20-lts` (pipe) for Linux runtimes.  
+> **Note:** Use `NODE:22-lts` (colon) not `NODE|20-lts` (pipe) for Linux runtimes.  
 > Run `az webapp list-runtimes --os-type linux` to see all valid values.
 
 ### 2. Add GitHub Actions secrets
@@ -76,4 +76,4 @@ Every push to `main` auto-deploys via GitHub Actions.
 Their internal API paths can change. Open DevTools → Network on their site, search for a product, find the `/api/` XHR request, and update the URL in `server.js`.
 
 **Azure deploy failing?**  
-Make sure your App Service plan has `--is-linux` set, and use `NODE:20-lts` (colon syntax) as the runtime.
+Make sure your App Service plan has `--is-linux` set, and use `NODE:22-lts` (colon syntax) as the runtime.
