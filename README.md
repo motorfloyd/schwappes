@@ -1,0 +1,75 @@
+# Schwappes — Ginger Ale Price Checker
+
+Compares Schweppes Ginger Ale (or any product) prices between Coles and Woolworths in real time.
+
+## Run locally
+
+```bash
+npm install
+npm start
+```
+
+Open **http://localhost:3000**
+
+## Deploy to Azure Web App
+
+### 1. Create the Azure Web App
+
+In the Azure Portal (or CLI):
+
+```bash
+# Login
+az login
+
+# Create resource group
+az group create --name schwappes-rg --location australiaeast
+
+# Create App Service plan (free tier)
+az appservice plan create \
+  --name schwappes-plan \
+  --resource-group schwappes-rg \
+  --sku F1 \
+  --is-linux
+
+# Create Web App (Node 20)
+az webapp create \
+  --name schwappes \
+  --resource-group schwappes-rg \
+  --plan schwappes-plan \
+  --runtime "NODE:20-lts"
+
+# Set startup command
+az webapp config set \
+  --name schwappes \
+  --resource-group schwappes-rg \
+  --startup-file "node server.js"
+```
+
+### 2. Add GitHub Actions secrets
+
+In your GitHub repo → Settings → Secrets → Actions, add:
+
+| Secret | Value |
+|---|---|
+| `AZURE_WEBAPP_NAME` | `schwappes` (your app name) |
+| `AZURE_WEBAPP_PUBLISH_PROFILE` | Contents of the publish profile XML downloaded from Azure Portal |
+
+To get the publish profile: Azure Portal → your Web App → **Download publish profile**.
+
+### 3. Push to main
+
+Every push to `main` auto-deploys via GitHub Actions.
+
+## API Endpoints
+
+| Endpoint | Description |
+|---|---|
+| `GET /api/coles?q=schweppes+ginger+ale` | Coles product search |
+| `GET /api/woolworths?q=schweppes+ginger+ale` | Woolworths product search |
+| `GET /api/compare?q=schweppes+ginger+ale` | Both stores combined |
+| `GET /health` | Health check |
+
+## Troubleshooting
+
+**Got a 403/404 from Coles or Woolworths?**  
+Their internal API paths can change. Open DevTools → Network on their site, search for a product, find the `/api/` XHR request, and update the URL in `server.js`.
