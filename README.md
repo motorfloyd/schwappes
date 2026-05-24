@@ -15,8 +15,6 @@ Open **http://localhost:3000**
 
 ### 1. Create the Azure Web App
 
-In the Azure Portal (or CLI):
-
 ```bash
 # Login
 az login
@@ -31,7 +29,7 @@ az appservice plan create \
   --sku F1 \
   --is-linux
 
-# Create Web App (Node 20)
+# Create Web App (Node 20 — use colon syntax)
 az webapp create \
   --name schwappes \
   --resource-group schwappes-rg \
@@ -45,14 +43,17 @@ az webapp config set \
   --startup-file "node server.js"
 ```
 
+> **Note:** Use `NODE:20-lts` (colon) not `NODE|20-lts` (pipe) for Linux runtimes.  
+> Run `az webapp list-runtimes --os-type linux` to see all valid values.
+
 ### 2. Add GitHub Actions secrets
 
 In your GitHub repo → Settings → Secrets → Actions, add:
 
 | Secret | Value |
 |---|---|
-| `AZURE_WEBAPP_NAME` | `schwappes` (your app name) |
-| `AZURE_WEBAPP_PUBLISH_PROFILE` | Contents of the publish profile XML downloaded from Azure Portal |
+| `AZURE_WEBAPP_NAME` | Your app name (e.g. `schwappes`) |
+| `AZURE_WEBAPP_PUBLISH_PROFILE` | Contents of the publish profile XML from Azure Portal |
 
 To get the publish profile: Azure Portal → your Web App → **Download publish profile**.
 
@@ -73,3 +74,6 @@ Every push to `main` auto-deploys via GitHub Actions.
 
 **Got a 403/404 from Coles or Woolworths?**  
 Their internal API paths can change. Open DevTools → Network on their site, search for a product, find the `/api/` XHR request, and update the URL in `server.js`.
+
+**Azure deploy failing?**  
+Make sure your App Service plan has `--is-linux` set, and use `NODE:20-lts` (colon syntax) as the runtime.
