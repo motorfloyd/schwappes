@@ -25,6 +25,9 @@ jobs:
       - name: Install dependencies
         run: npm install --omit=dev
 
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
       - name: Zip package
         run: |
           zip -r deploy.zip . \
@@ -33,12 +36,9 @@ jobs:
             --exclude "*.log"
           echo "Zip size: $(du -sh deploy.zip)"
 
-      - name: Deploy via Kudu zip API
-        run: |
-          curl -X POST \
-            "https://${{ secrets.AZURE_WEBAPP_NAME }}.scm.azurewebsites.net/api/zipdeploy" \
-            -u "${{ secrets.AZURE_SCM_USERNAME }}:${{ secrets.AZURE_SCM_PASSWORD }}" \
-            -H "Content-Type: application/zip" \
-            --data-binary @deploy.zip \
-            --fail \
-            -v 2>&1 | tail -20
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
+          package: .
