@@ -1,187 +1,99 @@
 const express = require('express');
-const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const DB = path.join(__dirname, 'data.json');
 
-app.use(cors());
+app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Lazy-load playwright so server starts even if chromium isn't installed yet
-let browserPromise = null;
-
-async function getBrowser() {
-  if (!browserPromise) {
-    const { chromium } = require('playwright');
-    browserPromise = chromium.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-      ],
-    });
-  }
-  return browserPromise;
+function load() {
+  try { return JSON.parse(fs.readFileSync(DB, 'utf8')); }
+  catch { return { products: [], entries: [] }; }
 }
+function save(db) { fs.writeFileSync(DB, JSON.stringify(db, null, 2)); }
 
-async function scrapeWoolworths(query) {
-  const browser = await getBrowser();
-  const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    locale: 'en-AU',
-    extraHTTPHeaders: { 'Accept-Language': 'en-AU,en;q=0.9' },
+// Products (unique name+size combos)
+app.get('/api/products', (req, res) => {
+  const db = load();
+  res.json(db.products);
+});
+
+app.post('/api/products', (req, res) => {
+  const { name, size } = req.body;
+  if (!name) return res.status(400).json({ error: 'name required' });
+  const db = load();
+  const existing = db.products.find(p => p.name === name && p.size === (size || ''));
+  if (existing) return res.json(existing);
+  const product = { id: Date.now(), name, size: size || '', createdAt: new Date().toISOString() };
+  db.products.push(product);
+  save(db);
+  res.json(product);
+});
+
+app.delete('/api/products/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const db = load();
+  db.products = db.products.filter(p => p.id !== id);
+  db.entries = db.entries.filter(e => e.productId !== id);
+  save(db);
+  res.json({ ok: true });
+});
+
+// Price entries
+app.get('/api/entries', (req, res) => {
+  const db = load();
+  const { productId } = req.query;
+  const entries = productId
+    ? db.entries.filter(e => e.productId === Number(productId))
+    : db.entries;
+  res.json(entries.sort((a, b) => new Date(b.date) - new Date(a.date)));
+});
+
+app.post('/api/entries', (req, res) => {
+  const { productId, store, price, date, note } = req.body;
+  if (!productId || !store || price == null) return res.status(400).json({ error: 'productId, store, price required' });
+  const db = load();
+  if (!db.products.find(p => p.id === Number(productId))) return res.status(404).json({ error: 'Product not found' });
+  const entry = {
+    id: Date.now(),
+    productId: Number(productId),
+    store,
+    price: Number(price),
+    date: date || new Date().toISOString().split('T')[0],
+    note: note || '',
+    createdAt: new Date().toISOString(),
+  };
+  db.entries.push(entry);
+  save(db);
+  res.json(entry);
+});
+
+app.delete('/api/entries/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const db = load();
+  db.entries = db.entries.filter(e => e.id !== id);
+  save(db);
+  res.json({ ok: true });
+});
+
+// Summary: latest price per store per product
+app.get('/api/summary', (req, res) => {
+  const db = load();
+  const summary = db.products.map(product => {
+    const entries = db.entries.filter(e => e.productId === product.id);
+    const byStore = {};
+    for (const e of entries) {
+      if (!byStore[e.store] || e.date > byStore[e.store].date) byStore[e.store] = e;
+    }
+    const prices = Object.values(byStore);
+    const cheapest = prices.length ? prices.reduce((a, b) => a.price < b.price ? a : b) : null;
+    return { product, byStore, cheapest, entryCount: entries.length };
   });
-  const page = await context.newPage();
-
-  try {
-    // Intercept the API response as the page loads
-    let apiData = null;
-    page.on('response', async response => {
-      if (response.url().includes('/apis/ui/Search/products') && response.status() === 200) {
-        try { apiData = await response.json(); } catch {}
-      }
-    });
-
-    await page.goto(`https://www.woolworths.com.au/shop/search/products?searchTerm=${encodeURIComponent(query)}`, {
-      waitUntil: 'networkidle',
-      timeout: 20000,
-    });
-
-    // Give interceptor a moment to capture
-    await page.waitForTimeout(1000);
-
-    if (apiData) return parseWoolworths(apiData);
-
-    // Fallback: parse from DOM
-    const products = await page.evaluate(() => {
-      const items = document.querySelectorAll('[data-testid="product-tile"]');
-      return Array.from(items).slice(0, 5).map(el => ({
-        name: el.querySelector('[data-testid="product-title"]')?.textContent?.trim() || '',
-        price: el.querySelector('.price')?.textContent?.trim() || '',
-      }));
-    });
-    return products;
-
-  } finally {
-    await context.close();
-  }
-}
-
-function parseWoolworths(data) {
-  const results = data?.Products || data?.products || [];
-  return results.slice(0, 5).map(p => ({
-    name: p.Name || p.name || 'Unknown',
-    brand: p.Brand || p.brand || '',
-    price: p.Price || p.price || null,
-    wasPrice: p.WasPrice || p.wasPrice || null,
-    isSpecial: p.IsOnSpecial || p.isOnSpecial || false,
-    size: p.PackageSize || p.size || '',
-    unitPrice: p.CupString || p.cupString || null,
-    imageUrl: p.Stockcode ? `https://cdn0.woolworths.media/content/wowproductimages/medium/${p.Stockcode}.jpg` : null,
-    url: p.UrlFriendlyName ? `https://www.woolworths.com.au/shop/productdetails/${p.Stockcode}/${p.UrlFriendlyName}` : null,
-  }));
-}
-
-async function scrapeColes(query) {
-  const browser = await getBrowser();
-  const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    locale: 'en-AU',
-    extraHTTPHeaders: { 'Accept-Language': 'en-AU,en;q=0.9' },
-  });
-  const page = await context.newPage();
-
-  try {
-    let apiData = null;
-    page.on('response', async response => {
-      if (response.url().includes('/product-list/') && response.status() === 200) {
-        try { apiData = await response.json(); } catch {}
-      }
-    });
-
-    await page.goto(`https://www.coles.com.au/search?q=${encodeURIComponent(query)}`, {
-      waitUntil: 'networkidle',
-      timeout: 20000,
-    });
-
-    await page.waitForTimeout(1000);
-
-    if (apiData) return parseColes(apiData);
-
-    // Fallback: DOM scrape
-    const products = await page.evaluate(() => {
-      const items = document.querySelectorAll('[data-testid="product-tile"], .product-tile');
-      return Array.from(items).slice(0, 5).map(el => ({
-        name: el.querySelector('[data-testid="product-title"], .product__title')?.textContent?.trim() || '',
-        price: el.querySelector('[data-testid="product-pricing"], .product__price')?.textContent?.trim() || '',
-      }));
-    });
-    return products;
-
-  } finally {
-    await context.close();
-  }
-}
-
-function parseColes(data) {
-  const results = data?.results || data?.catalogEntryView || data?.data?.results || [];
-  return results.slice(0, 5).map(p => ({
-    name: p.name || p.seoName || 'Unknown',
-    brand: p.brand || '',
-    price: p.pricing?.now ?? p.price?.value ?? null,
-    wasPrice: p.pricing?.was ?? null,
-    isSpecial: p.pricing?.isSpecial ?? false,
-    size: p.size || p.unitPricingMeasure || '',
-    unitPrice: p.pricing?.comparable || null,
-    imageUrl: p.imageUris?.[0] || p.mediumImage || null,
-    url: p.seoToken ? `https://www.coles.com.au/product/${p.seoToken}` : null,
-  }));
-}
-
-// --- Routes ---
-app.get('/api/woolworths', async (req, res) => {
-  const query = req.query.q;
-  if (!query) return res.status(400).json({ error: 'Missing query parameter: q' });
-  try {
-    const products = await scrapeWoolworths(query);
-    res.json({ store: 'woolworths', query, products });
-  } catch (err) {
-    res.status(500).json({ store: 'woolworths', error: err.message, products: [] });
-  }
+  res.json(summary);
 });
 
-app.get('/api/coles', async (req, res) => {
-  const query = req.query.q;
-  if (!query) return res.status(400).json({ error: 'Missing query parameter: q' });
-  try {
-    const products = await scrapeColes(query);
-    res.json({ store: 'coles', query, products });
-  } catch (err) {
-    res.status(500).json({ store: 'coles', error: err.message, products: [] });
-  }
-});
-
-app.get('/api/compare', async (req, res) => {
-  const query = req.query.q;
-  if (!query) return res.status(400).json({ error: 'Missing query parameter: q' });
-  const [c, w] = await Promise.allSettled([
-    scrapeWoolworths(query),
-    scrapeColes(query),
-  ]);
-  res.json({
-    query,
-    woolworths: { products: c.status === 'fulfilled' ? c.value : [], error: c.reason?.message },
-    coles: { products: w.status === 'fulfilled' ? w.value : [], error: w.reason?.message },
-  });
-});
-
-app.get('/health', (_, res) => res.json({ status: 'ok', port: PORT }));
-
-app.listen(PORT, () => {
-  console.log(`\n🍺 Schwappes running at http://localhost:${PORT}`);
-  // Warm up browser in background
-  getBrowser().then(() => console.log('✅ Browser ready')).catch(e => console.error('⚠️  Browser init failed:', e.message));
-});
+app.get('/health', (_, res) => res.json({ status: 'ok' }));
+app.listen(PORT, () => console.log(`🍺 Schwappes running at http://localhost:${PORT}`));

@@ -3,213 +3,462 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Schwappes Price Checker</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet" />
+  <title>Schwappes</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     :root {
-      --coles-red: #D00F2D;
-      --woolies-green: #008A35;
-      --bg: #f5f4f0;
-      --surface: #ffffff;
-      --border: rgba(0,0,0,0.1);
-      --text: #1a1a1a;
-      --muted: #6b6b6b;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root { --bg: #1a1a1a; --surface: #252525; --border: rgba(255,255,255,0.1); --text: #f0ede8; --muted: #999; }
+      --cream: #f5f0e8; --ink: #1a1510; --muted: #7a7060;
+      --coles: #D00F2D; --woolies: #008A35; --other: #4a6fa5;
+      --surface: #ffffff; --border: rgba(26,21,16,0.12);
+      --accent: #c8a04a;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--ink); min-height: 100vh; }
 
-    header { text-align: center; padding: 3rem 1rem 2rem; }
-    header h1 { font-family: 'DM Serif Display', serif; font-size: clamp(28px, 5vw, 42px); font-weight: 400; letter-spacing: -0.5px; }
-    header p { color: var(--muted); margin-top: 8px; font-size: 15px; }
-
-    .search-wrap { max-width: 560px; margin: 0 auto 2.5rem; padding: 0 1rem; display: flex; gap: 8px; }
-    .search-wrap input {
-      flex: 1; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border);
-      background: var(--surface); color: var(--text); font-family: 'DM Sans', sans-serif;
-      font-size: 15px; outline: none; transition: border-color 0.15s;
+    /* HEADER */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 64px; background: var(--cream);
+      position: sticky; top: 0; z-index: 100;
     }
-    .search-wrap input:focus { border-color: var(--text); }
-    .search-wrap button {
-      padding: 12px 22px; border-radius: 10px; border: none; background: var(--text);
-      color: var(--bg); font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500;
-      cursor: pointer; white-space: nowrap; transition: opacity 0.15s;
+    .logo { font-family: 'Playfair Display', serif; font-size: 22px; letter-spacing: -0.3px; }
+    .logo span { color: var(--accent); }
+    .header-actions { display: flex; gap: 10px; }
+
+    /* LAYOUT */
+    main { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    /* SUMMARY CARDS */
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-bottom: 2.5rem; }
+    .product-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 1.25rem 1.5rem; cursor: pointer; transition: box-shadow 0.15s, transform 0.15s;
+      position: relative;
     }
-    .search-wrap button:hover { opacity: 0.8; }
-    .search-wrap button:disabled { opacity: 0.4; cursor: not-allowed; }
-
-    #winnerBar { max-width: 760px; margin: 0 auto 1.5rem; padding: 0 1rem; display: none; }
-    .winner-inner {
-      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-      padding: 12px 18px; font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 10px;
+    .product-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.08); transform: translateY(-1px); }
+    .product-card.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+    .card-name { font-family: 'Playfair Display', serif; font-size: 17px; margin-bottom: 4px; }
+    .card-size { font-size: 12px; color: var(--muted); margin-bottom: 14px; font-family: 'DM Mono', monospace; }
+    .card-prices { display: flex; gap: 12px; flex-wrap: wrap; }
+    .store-price { display: flex; flex-direction: column; gap: 2px; }
+    .store-label { font-size: 10px; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; }
+    .store-amount { font-family: 'DM Mono', monospace; font-size: 20px; font-weight: 500; }
+    .store-date { font-size: 10px; color: var(--muted); }
+    .winner-badge {
+      position: absolute; top: 14px; right: 14px;
+      font-size: 10px; font-weight: 500; padding: 3px 8px;
+      border-radius: 99px; letter-spacing: 0.3px;
     }
-    .winner-inner strong { color: var(--text); }
+    .card-footer { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .card-entry-count { font-size: 11px; color: var(--muted); }
+    .card-actions { display: flex; gap: 6px; }
 
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 760px; margin: 0 auto; padding: 0 1rem 3rem; }
-    @media (max-width: 540px) { .grid { grid-template-columns: 1fr; } }
+    /* DETAIL PANEL */
+    #detailPanel { display: none; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem; margin-bottom: 2.5rem; }
+    #detailPanel.visible { display: block; }
+    .panel-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.5rem; }
+    .panel-title { font-family: 'Playfair Display', serif; font-size: 22px; }
+    .panel-subtitle { font-size: 13px; color: var(--muted); margin-top: 3px; font-family: 'DM Mono', monospace; }
+    .panel-body { display: grid; grid-template-columns: 1fr 340px; gap: 2rem; }
+    @media (max-width: 700px) { .panel-body { grid-template-columns: 1fr; } }
 
-    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
-    .card-header { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--border); }
-    .store-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
-    .card-header h2 { font-size: 15px; font-weight: 500; }
+    /* CHART */
+    .chart-wrap { position: relative; height: 240px; }
 
-    .product { padding: 12px 18px; border-bottom: 1px solid var(--border); display: flex; gap: 12px; align-items: flex-start; }
-    .product:last-child { border-bottom: none; }
-    .product-img { width: 52px; height: 52px; object-fit: contain; border-radius: 6px; background: #f0ede8; flex-shrink: 0; }
-    .product-img-placeholder { width: 52px; height: 52px; border-radius: 6px; background: var(--bg); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 22px; }
-    .product-info { flex: 1; min-width: 0; }
-    .product-name { font-size: 13px; color: var(--muted); line-height: 1.35; margin-bottom: 5px; }
-    .product-price-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-    .price-now { font-size: 20px; font-weight: 500; }
-    .price-was { font-size: 13px; color: var(--muted); text-decoration: line-through; }
-    .unit-price { font-size: 11px; color: var(--muted); margin-top: 2px; }
-    .badge { display: inline-block; font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 99px; margin-top: 4px; }
-    .badge-sale { background: #ffeaea; color: #a32d2d; }
-    .badge-special { background: #e1f5ee; color: #0f6e56; }
-    .product-link { font-size: 11px; color: var(--muted); text-decoration: none; margin-top: 4px; display: inline-block; }
-    .product-link:hover { text-decoration: underline; }
+    /* HISTORY TABLE */
+    .history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .history-table th { text-align: left; padding: 8px 10px; font-size: 10px; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); }
+    .history-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); }
+    .history-table tr:last-child td { border-bottom: none; }
+    .history-table tr:hover td { background: var(--cream); }
+    .store-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
 
-    .state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2.5rem 1rem; gap: 10px; color: var(--muted); font-size: 13px; text-align: center; }
-    .spinner { width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--muted); border-radius: 50%; animation: spin 0.7s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .blocked-box { margin: 14px; padding: 14px 16px; background: #fffbf0; border: 1px solid #f0d080; border-radius: 10px; font-size: 13px; color: #7a6010; line-height: 1.6; }
-    .blocked-box p { margin-bottom: 10px; }
-    .blocked-box a {
-      display: inline-block; padding: 7px 14px; border-radius: 7px; font-weight: 500;
-      text-decoration: none; font-size: 13px; border: 1px solid currentColor;
+    /* LOG FORM */
+    .log-form { background: var(--cream); border-radius: 10px; padding: 1.25rem; }
+    .log-form h3 { font-family: 'Playfair Display', serif; font-size: 16px; margin-bottom: 1rem; }
+    .form-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    .form-row label { font-size: 11px; font-weight: 500; letter-spacing: 0.4px; text-transform: uppercase; color: var(--muted); }
+    .form-row input, .form-row select, .form-row textarea {
+      padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px;
+      background: var(--surface); font-family: 'DM Sans', sans-serif; font-size: 14px;
+      color: var(--ink); outline: none; transition: border-color 0.15s;
     }
-    .error-box { margin: 14px; padding: 12px 14px; background: #fff6f6; border: 1px solid #f7c1c1; border-radius: 8px; font-size: 13px; color: #a32d2d; }
+    .form-row input:focus, .form-row select:focus { border-color: var(--accent); }
+    .form-row textarea { resize: vertical; min-height: 60px; }
+
+    /* BUTTONS */
+    .btn { padding: 9px 18px; border-radius: 8px; border: none; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity 0.15s; }
+    .btn:hover { opacity: 0.82; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary { background: var(--ink); color: var(--cream); }
+    .btn-accent { background: var(--accent); color: var(--surface); }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--ink); }
+    .btn-danger { background: transparent; border: 1px solid #e0a0a0; color: #c04040; }
+    .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 6px; }
+
+    /* EMPTY STATE */
+    .empty { text-align: center; padding: 4rem 2rem; color: var(--muted); }
+    .empty-icon { font-size: 48px; margin-bottom: 1rem; }
+    .empty h2 { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--ink); margin-bottom: 8px; }
+    .empty p { font-size: 14px; line-height: 1.6; margin-bottom: 1.5rem; }
+
+    /* MODAL */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal { background: var(--surface); border-radius: 14px; padding: 1.75rem; width: 420px; max-width: 95vw; transform: translateY(10px); transition: transform 0.2s; }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    .modal h2 { font-family: 'Playfair Display', serif; font-size: 20px; margin-bottom: 1.25rem; }
+    .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 1.25rem; }
+
+    /* ALERT */
+    .alert { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--ink); color: var(--cream); padding: 12px 18px; border-radius: 10px; font-size: 14px; z-index: 300; transform: translateY(10px); opacity: 0; transition: all 0.25s; pointer-events: none; }
+    .alert.show { transform: translateY(0); opacity: 1; }
+    .alert.cheaper { background: var(--woolies); }
+    .alert.more-expensive { background: #b04040; }
+
+    /* STORE COLORS */
+    .c-coles { color: var(--coles); }
+    .c-woolworths { color: var(--woolies); }
+    .c-other { color: var(--other); }
+    .bg-coles { background: var(--coles); }
+    .bg-woolworths { background: var(--woolies); }
+    .bg-other { background: var(--other); }
+
+    .section-title { font-family: 'Playfair Display', serif; font-size: 20px; margin-bottom: 1rem; display: flex; align-items: center; gap: 12px; }
+    .section-title small { font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--muted); font-weight: 400; }
   </style>
 </head>
 <body>
 
 <header>
-  <h1>Schwappes Price Checker</h1>
-  <p>Live prices from Coles &amp; Woolworths</p>
+  <div class="logo">Schwappes<span>.</span></div>
+  <div class="header-actions">
+    <button class="btn btn-ghost btn-sm" onclick="openAddProduct()">+ Add product</button>
+  </div>
 </header>
 
-<div class="search-wrap">
-  <input type="text" id="searchTerm" value="Schweppes ginger ale" placeholder="Search for a product…" />
-  <button id="searchBtn" onclick="fetchPrices()">Check prices</button>
-</div>
-
-<div id="winnerBar">
-  <div class="winner-inner">
-    <span>🏆</span>
-    <span id="winnerText"></span>
+<main>
+  <div id="summaryGrid" class="summary-grid"></div>
+  <div id="detailPanel" class="detail-panel"></div>
+  <div id="emptyState" style="display:none" class="empty">
+    <div class="empty-icon">🥤</div>
+    <h2>No products yet</h2>
+    <p>Add a product like "Schweppes Ginger Ale" then log prices<br>as you spot them in Coles and Woolworths.</p>
+    <button class="btn btn-accent" onclick="openAddProduct()">Add your first product</button>
   </div>
-</div>
+</main>
 
-<div class="grid">
-  <div class="card">
-    <div class="card-header">
-      <div class="store-dot" style="background:#D00F2D"></div>
-      <h2>Coles</h2>
+<!-- Add product modal -->
+<div class="modal-overlay" id="addProductModal">
+  <div class="modal">
+    <h2>Add product</h2>
+    <div class="form-row"><label>Product name</label><input id="newProductName" placeholder="e.g. Schweppes Ginger Ale" /></div>
+    <div class="form-row"><label>Size / variant</label><input id="newProductSize" placeholder="e.g. 1.25L, 10-pack, 375mL" /></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('addProductModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addProduct()">Add product</button>
     </div>
-    <div id="colesResults" class="state">Enter a search term and hit "Check prices"</div>
-  </div>
-
-  <div class="card">
-    <div class="card-header">
-      <div class="store-dot" style="background:#008A35"></div>
-      <h2>Woolworths</h2>
-    </div>
-    <div id="wooliesResults" class="state">Enter a search term and hit "Check prices"</div>
   </div>
 </div>
+
+<div class="alert" id="alert"></div>
 
 <script>
-  function loading() {
-    return '<div class="state"><div class="spinner"></div><span>Fetching prices…</span></div>';
+let state = { summary: [], activeProductId: null, entries: [], chart: null };
+
+// --- API ---
+const api = {
+  get: url => fetch(url).then(r => r.json()),
+  post: (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json()),
+  del: url => fetch(url, { method: 'DELETE' }).then(r => r.json()),
+};
+
+// --- INIT ---
+async function init() { await refreshSummary(); }
+
+async function refreshSummary() {
+  state.summary = await api.get('/api/summary');
+  renderSummary();
+  if (state.activeProductId) {
+    const item = state.summary.find(s => s.product.id === state.activeProductId);
+    if (item) await openDetail(state.activeProductId);
   }
+}
 
-  function renderProducts(data, store) {
-    // Blocked by bot protection
-    if (data.blocked) {
-      const storeName = store === 'coles' ? 'Coles' : 'Woolworths';
-      const color = store === 'coles' ? '#D00F2D' : '#008A35';
-      return `<div class="blocked-box">
-        <p>⚠️ ${storeName} is blocking automated requests from this server's IP address.<br>
-        Click below to check the price directly on their website.</p>
-        <a href="${data.searchUrl}" target="_blank" style="color:${color}">Search on ${storeName} →</a>
-      </div>`;
-    }
+// --- SUMMARY ---
+function storeColor(store) {
+  return store === 'coles' ? 'var(--coles)' : store === 'woolworths' ? 'var(--woolies)' : 'var(--other)';
+}
+function storeName(store) {
+  return store === 'coles' ? 'Coles' : store === 'woolworths' ? 'Woolworths' : store;
+}
+function fmtDate(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  return dt.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: '2-digit' });
+}
 
-    if (data.error && !data.blocked) {
-      return `<div class="error-box">${data.error}</div>`;
-    }
+function renderSummary() {
+  const grid = document.getElementById('summaryGrid');
+  const empty = document.getElementById('emptyState');
 
-    const products = data.products || [];
-    if (!products.length) {
-      return '<div class="state">No results found</div>';
-    }
+  if (!state.summary.length) {
+    grid.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
 
-    return products.map(p => {
-      const price = p.price != null ? `$${Number(p.price).toFixed(2)}` : '—';
-      const wasHtml = p.wasPrice ? `<span class="price-was">$${Number(p.wasPrice).toFixed(2)}</span>` : '';
-      const badge = p.isSpecial ? '<span class="badge badge-special">Special</span>'
-        : (p.wasPrice ? '<span class="badge badge-sale">Was price</span>' : '');
-      const img = p.imageUrl
-        ? `<img class="product-img" src="${p.imageUrl}" alt="" loading="lazy" onerror="this.style.display='none'" />`
-        : `<div class="product-img-placeholder">🥤</div>`;
-      const link = p.url ? `<a class="product-link" href="${p.url}" target="_blank">View on site →</a>` : '';
-      const unit = p.unitPrice ? `<div class="unit-price">${p.unitPrice}</div>` : '';
-      return `<div class="product">
-        ${img}
-        <div class="product-info">
-          <div class="product-name">${p.name}${p.size ? ` · ${p.size}` : ''}</div>
-          <div class="product-price-row"><span class="price-now">${price}</span>${wasHtml}</div>
-          ${unit}${badge}${link}
+  grid.innerHTML = state.summary.map(({ product, byStore, cheapest, entryCount }) => {
+    const stores = Object.entries(byStore);
+    const pricesHtml = stores.length ? stores.map(([store, e]) => `
+      <div class="store-price">
+        <span class="store-label" style="color:${storeColor(store)}">${storeName(store)}</span>
+        <span class="store-amount">$${e.price.toFixed(2)}</span>
+        <span class="store-date">${fmtDate(e.date)}</span>
+      </div>`).join('') :
+      `<span style="font-size:13px;color:var(--muted)">No prices logged yet</span>`;
+
+    const winnerBadge = cheapest && stores.length > 1 ? `
+      <div class="winner-badge" style="background:${storeColor(cheapest.store)};color:#fff">
+        ${storeName(cheapest.store)} cheaper
+      </div>` : '';
+
+    const savings = stores.length > 1
+      ? (() => { const vals = stores.map(([,e]) => e.price); const diff = Math.max(...vals) - Math.min(...vals); return diff > 0 ? `Save $${diff.toFixed(2)}` : 'Same price'; })()
+      : '';
+
+    return `<div class="product-card ${state.activeProductId === product.id ? 'active' : ''}" onclick="openDetail(${product.id})">
+      ${winnerBadge}
+      <div class="card-name">${product.name}</div>
+      <div class="card-size">${product.size || 'No size specified'}</div>
+      <div class="card-prices">${pricesHtml}</div>
+      <div class="card-footer">
+        <span class="card-entry-count">${entryCount} price log${entryCount !== 1 ? 's' : ''}${savings ? ' · ' + savings : ''}</span>
+        <div class="card-actions">
+          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();deleteProduct(${product.id})">Delete</button>
         </div>
-      </div>`;
-    }).join('');
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// --- DETAIL PANEL ---
+async function openDetail(productId) {
+  state.activeProductId = productId;
+  const item = state.summary.find(s => s.product.id === productId);
+  if (!item) return;
+
+  state.entries = await api.get(`/api/entries?productId=${productId}`);
+  const panel = document.getElementById('detailPanel');
+  panel.className = 'visible';
+
+  const stores = ['coles', 'woolworths', 'other'];
+  const storeOptions = stores.map(s => `<option value="${s}">${storeName(s)}</option>`).join('');
+
+  panel.innerHTML = `
+    <div class="panel-header">
+      <div>
+        <div class="panel-title">${item.product.name}</div>
+        <div class="panel-subtitle">${item.product.size || 'No size'}</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="closeDetail()">Close ✕</button>
+    </div>
+    <div class="panel-body">
+      <div>
+        <div class="section-title">Price history <small>${state.entries.length} entries</small></div>
+        <div class="chart-wrap"><canvas id="priceChart"></canvas></div>
+        <br>
+        <table class="history-table">
+          <thead><tr><th>Date</th><th>Store</th><th>Price</th><th>Note</th><th></th></tr></thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </div>
+      <div>
+        <div class="log-form">
+          <h3>Log a price</h3>
+          <div class="form-row"><label>Store</label>
+            <select id="logStore">${storeOptions}</select>
+          </div>
+          <div class="form-row"><label>Price ($)</label>
+            <input type="number" id="logPrice" step="0.01" min="0" placeholder="2.50" />
+          </div>
+          <div class="form-row"><label>Date</label>
+            <input type="date" id="logDate" value="${new Date().toISOString().split('T')[0]}" />
+          </div>
+          <div class="form-row"><label>Note (optional)</label>
+            <textarea id="logNote" placeholder="On special, half price, etc."></textarea>
+          </div>
+          <button class="btn btn-accent" style="width:100%" onclick="logPrice(${productId})">Log price</button>
+        </div>
+      </div>
+    </div>`;
+
+  renderHistory();
+  renderChart(item.product.name);
+  renderSummary(); // re-render to update active state
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeDetail() {
+  state.activeProductId = null;
+  document.getElementById('detailPanel').className = '';
+  renderSummary();
+}
+
+function renderHistory() {
+  const tbody = document.getElementById('historyBody');
+  if (!tbody) return;
+  if (!state.entries.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:1.5rem">No entries yet — log your first price →</td></tr>';
+    return;
   }
+  tbody.innerHTML = state.entries.map(e => `
+    <tr>
+      <td style="font-family:'DM Mono',monospace;font-size:12px">${fmtDate(e.date)}</td>
+      <td><span class="store-dot bg-${e.store}"></span>${storeName(e.store)}</td>
+      <td style="font-family:'DM Mono',monospace;font-weight:500">$${e.price.toFixed(2)}</td>
+      <td style="color:var(--muted);font-size:12px">${e.note || '—'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteEntry(${e.id})">×</button></td>
+    </tr>`).join('');
+}
 
-  function updateWinner(colesData, wooliesData) {
-    const bar = document.getElementById('winnerBar');
-    if (colesData.blocked || wooliesData.blocked) { bar.style.display = 'none'; return; }
-    const c = (colesData.products || []).find(p => p.price != null);
-    const w = (wooliesData.products || []).find(p => p.price != null);
-    if (!c || !w) { bar.style.display = 'none'; return; }
-    const cp = Number(c.price), wp = Number(w.price);
-    const diff = Math.abs(cp - wp).toFixed(2);
-    let msg;
-    if (cp < wp) msg = `<strong>Coles</strong> is cheaper by <strong>$${diff}</strong> on the top result`;
-    else if (wp < cp) msg = `<strong>Woolworths</strong> is cheaper by <strong>$${diff}</strong> on the top result`;
-    else msg = `Same price at both stores`;
-    document.getElementById('winnerText').innerHTML = msg;
-    bar.style.display = 'block';
-  }
+function renderChart(productName) {
+  if (state.chart) { state.chart.destroy(); state.chart = null; }
+  const canvas = document.getElementById('priceChart');
+  if (!canvas || !state.entries.length) return;
 
-  async function fetchPrices() {
-    const q = document.getElementById('searchTerm').value.trim();
-    if (!q) return;
-    document.getElementById('colesResults').innerHTML = loading();
-    document.getElementById('wooliesResults').innerHTML = loading();
-    document.getElementById('winnerBar').style.display = 'none';
-    document.getElementById('searchBtn').disabled = true;
+  const stores = [...new Set(state.entries.map(e => e.store))];
+  const colors = { coles: '#D00F2D', woolworths: '#008A35', other: '#4a6fa5' };
 
-    const [colesRes, wooliesRes] = await Promise.allSettled([
-      fetch(`/api/coles?q=${encodeURIComponent(q)}`).then(r => r.json()),
-      fetch(`/api/woolworths?q=${encodeURIComponent(q)}`).then(r => r.json()),
-    ]);
-
-    const colesData = colesRes.status === 'fulfilled' ? colesRes.value : { error: colesRes.reason?.message, products: [] };
-    const wooliesData = wooliesRes.status === 'fulfilled' ? wooliesRes.value : { error: wooliesRes.reason?.message, products: [] };
-
-    document.getElementById('colesResults').innerHTML = renderProducts(colesData, 'coles');
-    document.getElementById('wooliesResults').innerHTML = renderProducts(wooliesData, 'woolies');
-    updateWinner(colesData, wooliesData);
-    document.getElementById('searchBtn').disabled = false;
-  }
-
-  document.getElementById('searchTerm').addEventListener('keydown', e => {
-    if (e.key === 'Enter') fetchPrices();
+  const datasets = stores.map(store => {
+    const storeEntries = state.entries
+      .filter(e => e.store === store)
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+    return {
+      label: storeName(store),
+      data: storeEntries.map(e => ({ x: e.date, y: e.price })),
+      borderColor: colors[store] || '#666',
+      backgroundColor: (colors[store] || '#666') + '20',
+      tension: 0.3,
+      pointRadius: 5,
+      pointHoverRadius: 7,
+      fill: false,
+    };
   });
+
+  state.chart = new Chart(canvas, {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { font: { family: 'DM Sans' }, boxWidth: 12 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y.toFixed(2)}`,
+          }
+        }
+      },
+      scales: {
+        x: { type: 'time', time: { unit: 'day', displayFormats: { day: 'd MMM' } }, grid: { color: 'rgba(0,0,0,0.05)' } },
+        y: { ticks: { callback: v => '$' + v.toFixed(2) }, grid: { color: 'rgba(0,0,0,0.05)' } },
+      }
+    }
+  });
+}
+
+// --- ACTIONS ---
+async function logPrice(productId) {
+  const store = document.getElementById('logStore').value;
+  const price = parseFloat(document.getElementById('logPrice').value);
+  const date = document.getElementById('logDate').value;
+  const note = document.getElementById('logNote').value;
+
+  if (!price || isNaN(price)) { showAlert('Enter a valid price', ''); return; }
+
+  // Check if cheaper than previous entries for this store
+  const prevForStore = state.entries.filter(e => e.store === store);
+  const prevLatest = prevForStore.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+  await api.post('/api/entries', { productId, store, price, date, note });
+
+  if (prevLatest && price < prevLatest.price) {
+    showAlert(`📉 Cheaper at ${storeName(store)}! $${prevLatest.price.toFixed(2)} → $${price.toFixed(2)}`, 'cheaper');
+  } else if (prevLatest && price > prevLatest.price) {
+    showAlert(`📈 Price up at ${storeName(store)}: $${prevLatest.price.toFixed(2)} → $${price.toFixed(2)}`, 'more-expensive');
+  } else {
+    showAlert('Price logged ✓', '');
+  }
+
+  document.getElementById('logPrice').value = '';
+  document.getElementById('logNote').value = '';
+  await refreshSummary();
+}
+
+async function deleteEntry(id) {
+  await api.del(`/api/entries/${id}`);
+  await refreshSummary();
+}
+
+async function deleteProduct(id) {
+  if (!confirm('Delete this product and all its price history?')) return;
+  await api.del(`/api/products/${id}`);
+  if (state.activeProductId === id) closeDetail();
+  await refreshSummary();
+}
+
+function openAddProduct() {
+  document.getElementById('addProductModal').classList.add('open');
+  document.getElementById('newProductName').focus();
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+async function addProduct() {
+  const name = document.getElementById('newProductName').value.trim();
+  const size = document.getElementById('newProductSize').value.trim();
+  if (!name) return;
+  const product = await api.post('/api/products', { name, size });
+  closeModal('addProductModal');
+  document.getElementById('newProductName').value = '';
+  document.getElementById('newProductSize').value = '';
+  await refreshSummary();
+  await openDetail(product.id);
+}
+
+function showAlert(msg, type) {
+  const el = document.getElementById('alert');
+  el.textContent = msg;
+  el.className = 'alert show' + (type ? ' ' + type : '');
+  setTimeout(() => el.className = 'alert', 3000);
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeModal('addProductModal');
+    closeDetail();
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openAddProduct(); }
+});
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+});
+
+// Add Chart.js date adapter
+const script = document.createElement('script');
+script.src = 'https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js';
+script.onload = init;
+document.head.appendChild(script);
 </script>
 </body>
 </html>
