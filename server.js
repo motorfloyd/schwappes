@@ -9,14 +9,11 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Shared headers that mimic a real browser request
 const BROWSER_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Accept': 'application/json, text/plain, */*',
   'Accept-Language': 'en-AU,en;q=0.9',
-  'Accept-Encoding': 'gzip, deflate, br',
   'Cache-Control': 'no-cache',
-  'Pragma': 'no-cache',
 };
 
 // --- Coles proxy ---
@@ -24,31 +21,43 @@ app.get('/api/coles', async (req, res) => {
   const query = req.query.q;
   if (!query) return res.status(400).json({ error: 'Missing query parameter: q' });
 
-  const url = `https://www.coles.com.au/api/2.0/product-list/search?q=${encodeURIComponent(query)}&pageNo=1&pageSize=10`;
+  // Try multiple known Coles API endpoints in order
+  const endpoints = [
+    `https://www.coles.com.au/api/2.0/product-list/search?q=${encodeURIComponent(query)}&pageNo=1&pageSize=10`,
+    `https://www.coles.com.au/api/2.0/product-list/browse?q=${encodeURIComponent(query)}&pageNo=1&pageSize=10`,
+    `https://api.coles.com.au/customer/v1/coles/products/search?q=${encodeURIComponent(query)}&pageSize=10`,
+  ];
 
-  try {
-    const response = await fetch(url, {
-      headers: {
-        ...BROWSER_HEADERS,
-        'Referer': 'https://www.coles.com.au/',
-        'Origin': 'https://www.coles.com.au',
-      },
-    });
-
-    if (!response.ok) {
-      return res.status(response.status).json({
-        error: `Coles API returned ${response.status}`,
-        hint: 'Coles may have updated their API. Check https://www.coles.com.au/search for the latest endpoints.',
+  for (const url of endpoints) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          ...BROWSER_HEADERS,
+          'Referer': 'https://www.coles.com.au/search?q=' + encodeURIComponent(query),
+          'Origin': 'https://www.coles.com.au',
+        },
+        timeout: 8000,
       });
+
+      if (response.ok) {
+        const data = await response.json();
+        const products = parseColes(data);
+        return res.json({ store: 'coles', query, products });
+      }
+    } catch (err) {
+      // try next endpoint
     }
-
-    const data = await response.json();
-    const products = parseColes(data);
-    res.json({ store: 'coles', query, products, raw_count: products.length });
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
   }
+
+  // All endpoints failed — return blocked status with search URL
+  return res.status(503).json({
+    store: 'coles',
+    query,
+    blocked: true,
+    products: [],
+    searchUrl: `https://www.coles.com.au/search?q=${encodeURIComponent(query)}`,
+    error: 'Coles is blocking automated requests from this server. Use the search link to check manually.',
+  });
 });
 
 function parseColes(data) {
@@ -71,32 +80,41 @@ app.get('/api/woolworths', async (req, res) => {
   const query = req.query.q;
   if (!query) return res.status(400).json({ error: 'Missing query parameter: q' });
 
-  const url = `https://www.woolworths.com.au/apis/ui/Search/products?searchTerm=${encodeURIComponent(query)}&pageNumber=1&pageSize=10&sortType=TraderRelevance&isMobile=false&filters=`;
+  const endpoints = [
+    `https://www.woolworths.com.au/apis/ui/Search/products?searchTerm=${encodeURIComponent(query)}&pageNumber=1&pageSize=10&sortType=TraderRelevance&isMobile=false`,
+    `https://www.woolworths.com.au/apis/ui/search/search?searchTerm=${encodeURIComponent(query)}&pageNumber=1&pageSize=10`,
+  ];
 
-  try {
-    const response = await fetch(url, {
-      headers: {
-        ...BROWSER_HEADERS,
-        'Referer': 'https://www.woolworths.com.au/',
-        'Origin': 'https://www.woolworths.com.au',
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-    });
-
-    if (!response.ok) {
-      return res.status(response.status).json({
-        error: `Woolworths API returned ${response.status}`,
-        hint: 'Woolworths may have updated their API. Check https://www.woolworths.com.au/shop/search for the latest endpoints.',
+  for (const url of endpoints) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          ...BROWSER_HEADERS,
+          'Referer': 'https://www.woolworths.com.au/shop/search/products?searchTerm=' + encodeURIComponent(query),
+          'Origin': 'https://www.woolworths.com.au',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        timeout: 8000,
       });
+
+      if (response.ok) {
+        const data = await response.json();
+        const products = parseWoolworths(data);
+        return res.json({ store: 'woolworths', query, products });
+      }
+    } catch (err) {
+      // try next
     }
-
-    const data = await response.json();
-    const products = parseWoolworths(data);
-    res.json({ store: 'woolworths', query, products, raw_count: products.length });
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
   }
+
+  return res.status(503).json({
+    store: 'woolworths',
+    query,
+    blocked: true,
+    products: [],
+    searchUrl: `https://www.woolworths.com.au/shop/search/products?searchTerm=${encodeURIComponent(query)}`,
+    error: 'Woolworths is blocking automated requests from this server. Use the search link to check manually.',
+  });
 });
 
 function parseWoolworths(data) {
@@ -109,12 +127,12 @@ function parseWoolworths(data) {
     isSpecial: p.IsOnSpecial || p.isOnSpecial || false,
     size: p.PackageSize || p.size || '',
     unitPrice: p.CupString || p.cupString || null,
-    imageUrl: p.MediumImageFile ? `https://cdn0.woolworths.media/content/wowproductimages/medium/${p.Stockcode}.jpg` : null,
+    imageUrl: p.Stockcode ? `https://cdn0.woolworths.media/content/wowproductimages/medium/${p.Stockcode}.jpg` : null,
     url: p.UrlFriendlyName ? `https://www.woolworths.com.au/shop/productdetails/${p.Stockcode}/${p.UrlFriendlyName}` : null,
   }));
 }
 
-// --- Combined search endpoint ---
+// --- Combined compare endpoint ---
 app.get('/api/compare', async (req, res) => {
   const query = req.query.q;
   if (!query) return res.status(400).json({ error: 'Missing query parameter: q' });
@@ -131,7 +149,6 @@ app.get('/api/compare', async (req, res) => {
   });
 });
 
-// Health check
 app.get('/health', (_, res) => res.json({ status: 'ok', port: PORT }));
 
 app.listen(PORT, () => {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ginger Ale Price Checker</title>
+  <title>Schwappes Price Checker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet" />
   <style>
@@ -15,16 +15,9 @@
       --border: rgba(0,0,0,0.1);
       --text: #1a1a1a;
       --muted: #6b6b6b;
-      --accent: #1a1a1a;
     }
     @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #1a1a1a;
-        --surface: #252525;
-        --border: rgba(255,255,255,0.1);
-        --text: #f0ede8;
-        --muted: #999;
-      }
+      :root { --bg: #1a1a1a; --surface: #252525; --border: rgba(255,255,255,0.1); --text: #f0ede8; --muted: #999; }
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
@@ -39,7 +32,7 @@
       background: var(--surface); color: var(--text); font-family: 'DM Sans', sans-serif;
       font-size: 15px; outline: none; transition: border-color 0.15s;
     }
-    .search-wrap input:focus { border-color: var(--accent); }
+    .search-wrap input:focus { border-color: var(--text); }
     .search-wrap button {
       padding: 12px 22px; border-radius: 10px; border: none; background: var(--text);
       color: var(--bg); font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500;
@@ -48,16 +41,12 @@
     .search-wrap button:hover { opacity: 0.8; }
     .search-wrap button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    #winnerBar {
-      max-width: 760px; margin: 0 auto 1.5rem; padding: 0 1rem;
-      display: none;
-    }
+    #winnerBar { max-width: 760px; margin: 0 auto 1.5rem; padding: 0 1rem; display: none; }
     .winner-inner {
       background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
       padding: 12px 18px; font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 10px;
     }
     .winner-inner strong { color: var(--text); }
-    .trophy { font-size: 18px; }
 
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 760px; margin: 0 auto; padding: 0 1rem 3rem; }
     @media (max-width: 540px) { .grid { grid-template-columns: 1fr; } }
@@ -72,7 +61,7 @@
     .product-img { width: 52px; height: 52px; object-fit: contain; border-radius: 6px; background: #f0ede8; flex-shrink: 0; }
     .product-img-placeholder { width: 52px; height: 52px; border-radius: 6px; background: var(--bg); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 22px; }
     .product-info { flex: 1; min-width: 0; }
-    .product-name { font-size: 13px; color: var(--muted); line-height: 1.35; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .product-name { font-size: 13px; color: var(--muted); line-height: 1.35; margin-bottom: 5px; }
     .product-price-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
     .price-now { font-size: 20px; font-weight: 500; }
     .price-was { font-size: 13px; color: var(--muted); text-decoration: line-through; }
@@ -87,15 +76,20 @@
     .spinner { width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--muted); border-radius: 50%; animation: spin 0.7s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .error-box { margin: 1rem; padding: 12px 14px; background: #fff6f6; border: 1px solid #f7c1c1; border-radius: 8px; font-size: 13px; color: #a32d2d; line-height: 1.5; }
-    .error-box a { color: #a32d2d; }
+    .blocked-box { margin: 14px; padding: 14px 16px; background: #fffbf0; border: 1px solid #f0d080; border-radius: 10px; font-size: 13px; color: #7a6010; line-height: 1.6; }
+    .blocked-box p { margin-bottom: 10px; }
+    .blocked-box a {
+      display: inline-block; padding: 7px 14px; border-radius: 7px; font-weight: 500;
+      text-decoration: none; font-size: 13px; border: 1px solid currentColor;
+    }
+    .error-box { margin: 14px; padding: 12px 14px; background: #fff6f6; border: 1px solid #f7c1c1; border-radius: 8px; font-size: 13px; color: #a32d2d; }
   </style>
 </head>
 <body>
 
 <header>
-  <h1>Ginger Ale Price Checker</h1>
-  <p>Live prices from Coles &amp; Woolworths via local proxy</p>
+  <h1>Schwappes Price Checker</h1>
+  <p>Live prices from Coles &amp; Woolworths</p>
 </header>
 
 <div class="search-wrap">
@@ -105,81 +99,81 @@
 
 <div id="winnerBar">
   <div class="winner-inner">
-    <span class="trophy">🏆</span>
+    <span>🏆</span>
     <span id="winnerText"></span>
   </div>
 </div>
 
 <div class="grid">
-  <div class="card" id="colesCard">
+  <div class="card">
     <div class="card-header">
       <div class="store-dot" style="background:#D00F2D"></div>
       <h2>Coles</h2>
     </div>
-    <div id="colesResults" class="state">Enter a search term and click "Check prices"</div>
+    <div id="colesResults" class="state">Enter a search term and hit "Check prices"</div>
   </div>
 
-  <div class="card" id="wooliesCard">
+  <div class="card">
     <div class="card-header">
       <div class="store-dot" style="background:#008A35"></div>
       <h2>Woolworths</h2>
     </div>
-    <div id="wooliesResults" class="state">Enter a search term and click "Check prices"</div>
+    <div id="wooliesResults" class="state">Enter a search term and hit "Check prices"</div>
   </div>
 </div>
 
 <script>
-  const API = ''; // same origin — proxy serves this file
-
   function loading() {
-    return '<div class="state"><div class="spinner"></div><span>Fetching live prices…</span></div>';
+    return '<div class="state"><div class="spinner"></div><span>Fetching prices…</span></div>';
   }
 
-  function renderProducts(products, store) {
+  function renderProducts(data, store) {
+    // Blocked by bot protection
+    if (data.blocked) {
+      const storeName = store === 'coles' ? 'Coles' : 'Woolworths';
+      const color = store === 'coles' ? '#D00F2D' : '#008A35';
+      return `<div class="blocked-box">
+        <p>⚠️ ${storeName} is blocking automated requests from this server's IP address.<br>
+        Click below to check the price directly on their website.</p>
+        <a href="${data.searchUrl}" target="_blank" style="color:${color}">Search on ${storeName} →</a>
+      </div>`;
+    }
+
+    if (data.error && !data.blocked) {
+      return `<div class="error-box">${data.error}</div>`;
+    }
+
+    const products = data.products || [];
     if (!products.length) {
       return '<div class="state">No results found</div>';
     }
+
     return products.map(p => {
       const price = p.price != null ? `$${Number(p.price).toFixed(2)}` : '—';
       const wasHtml = p.wasPrice ? `<span class="price-was">$${Number(p.wasPrice).toFixed(2)}</span>` : '';
-      const badge = p.isSpecial
-        ? '<span class="badge badge-special">Special</span>'
+      const badge = p.isSpecial ? '<span class="badge badge-special">Special</span>'
         : (p.wasPrice ? '<span class="badge badge-sale">Was price</span>' : '');
       const img = p.imageUrl
         ? `<img class="product-img" src="${p.imageUrl}" alt="" loading="lazy" onerror="this.style.display='none'" />`
         : `<div class="product-img-placeholder">🥤</div>`;
-      const link = p.url ? `<a class="product-link" href="${p.url}" target="_blank">View →</a>` : '';
+      const link = p.url ? `<a class="product-link" href="${p.url}" target="_blank">View on site →</a>` : '';
       const unit = p.unitPrice ? `<div class="unit-price">${p.unitPrice}</div>` : '';
       return `<div class="product">
         ${img}
         <div class="product-info">
-          <div class="product-name" title="${p.name}">${p.name}${p.size ? ` · ${p.size}` : ''}</div>
-          <div class="product-price-row">
-            <span class="price-now">${price}</span>
-            ${wasHtml}
-          </div>
-          ${unit}
-          ${badge}
-          ${link}
+          <div class="product-name">${p.name}${p.size ? ` · ${p.size}` : ''}</div>
+          <div class="product-price-row"><span class="price-now">${price}</span>${wasHtml}</div>
+          ${unit}${badge}${link}
         </div>
       </div>`;
     }).join('');
   }
 
-  function renderError(err, store) {
-    const searchUrl = store === 'coles'
-      ? `https://www.coles.com.au/search?q=${encodeURIComponent(document.getElementById('searchTerm').value)}`
-      : `https://www.woolworths.com.au/shop/search/products?searchTerm=${encodeURIComponent(document.getElementById('searchTerm').value)}`;
-    return `<div class="error-box">
-      ${err}<br>
-      <a href="${searchUrl}" target="_blank">Search on ${store === 'coles' ? 'Coles' : 'Woolworths'} →</a>
-    </div>`;
-  }
-
-  function updateWinner(colesProducts, wooliesProducts) {
+  function updateWinner(colesData, wooliesData) {
     const bar = document.getElementById('winnerBar');
-    const c = colesProducts.find(p => p.price != null);
-    const w = wooliesProducts.find(p => p.price != null);
+    if (colesData.blocked || wooliesData.blocked) { bar.style.display = 'none'; return; }
+    const c = (colesData.products || []).find(p => p.price != null);
+    const w = (wooliesData.products || []).find(p => p.price != null);
     if (!c || !w) { bar.style.display = 'none'; return; }
     const cp = Number(c.price), wp = Number(w.price);
     const diff = Math.abs(cp - wp).toFixed(2);
@@ -200,29 +194,16 @@
     document.getElementById('searchBtn').disabled = true;
 
     const [colesRes, wooliesRes] = await Promise.allSettled([
-      fetch(`${API}/api/coles?q=${encodeURIComponent(q)}`).then(r => r.json()),
-      fetch(`${API}/api/woolworths?q=${encodeURIComponent(q)}`).then(r => r.json()),
+      fetch(`/api/coles?q=${encodeURIComponent(q)}`).then(r => r.json()),
+      fetch(`/api/woolworths?q=${encodeURIComponent(q)}`).then(r => r.json()),
     ]);
 
-    let colesProducts = [], wooliesProducts = [];
+    const colesData = colesRes.status === 'fulfilled' ? colesRes.value : { error: colesRes.reason?.message, products: [] };
+    const wooliesData = wooliesRes.status === 'fulfilled' ? wooliesRes.value : { error: wooliesRes.reason?.message, products: [] };
 
-    if (colesRes.status === 'fulfilled' && !colesRes.value.error) {
-      colesProducts = colesRes.value.products || [];
-      document.getElementById('colesResults').innerHTML = renderProducts(colesProducts, 'coles');
-    } else {
-      const msg = colesRes.value?.error || colesRes.reason?.message || 'Unknown error';
-      document.getElementById('colesResults').innerHTML = renderError(msg, 'coles');
-    }
-
-    if (wooliesRes.status === 'fulfilled' && !wooliesRes.value.error) {
-      wooliesProducts = wooliesRes.value.products || [];
-      document.getElementById('wooliesResults').innerHTML = renderProducts(wooliesProducts, 'woolies');
-    } else {
-      const msg = wooliesRes.value?.error || wooliesRes.reason?.message || 'Unknown error';
-      document.getElementById('wooliesResults').innerHTML = renderError(msg, 'woolies');
-    }
-
-    updateWinner(colesProducts, wooliesProducts);
+    document.getElementById('colesResults').innerHTML = renderProducts(colesData, 'coles');
+    document.getElementById('wooliesResults').innerHTML = renderProducts(wooliesData, 'woolies');
+    updateWinner(colesData, wooliesData);
     document.getElementById('searchBtn').disabled = false;
   }
 
